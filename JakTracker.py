@@ -62,7 +62,7 @@ class JakTracker(object):
       psg_row = []
       if row == 'HSeparator':
         psg_row.append(PSG.HSeparator(key='HSeparator'))
-      else:  
+      else:
         for element in row:
           if element in self.fields:
             field_info = self.fields[element]
@@ -94,7 +94,7 @@ class JakTracker(object):
     # build right click menu
     layouts_submenu = list(map(lambda x: f'{x}::LAYOUT#{x}', os.listdir('layouts')))
     rc_menu = ['', ['Choose Layout', layouts_submenu, 'Reset Layout']]
-    
+
     # cleanup/replace previous self.window, if any
     location = (50,50)
     if self.window is not None:

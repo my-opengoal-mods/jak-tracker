@@ -1,9 +1,9 @@
-from ReadWriteMemory import ReadWriteMemory, ReadWriteMemoryError
+from ReadWriteMemory import ReadWriteMemory, ReadWriteMemoryError, os
 
 DEBUG = False
 
 # marker in openGOAL memory to search for
-MARKER_BYTES = b'UnLiStEdStRaTs_JaK1\x00'
+MARKER_BYTES = b'UnLiStEdStRaTs_JaK2\x00'
 
 class OpenGoalAutoTracker(object):
 
@@ -21,7 +21,7 @@ class OpenGoalAutoTracker(object):
       self.status = 'no_gk'
       self.process = None
       return False
-    
+
   def find_markers(self, close_process: bool) -> bool:
     try:
       if self.process is None and not self.connect():
@@ -36,7 +36,7 @@ class OpenGoalAutoTracker(object):
       if self.marker_addr is not None:
         # verify marker_addr
         tmp_bytes = self.process.readByte(self.marker_addr, 20)
-          
+
         if tmp_bytes == MARKER_BYTES:
           # reuse marker_addr
           tmp_marker_addr = self.marker_addr
@@ -59,9 +59,9 @@ class OpenGoalAutoTracker(object):
           if first_byte == b'U':
             # first byte matched, check the full 20 bytes
             tmp_bytes = self.process.readByte(tmp, 20)
-            
+
             if tmp_bytes == MARKER_BYTES:
-              # found it! 
+              # found it!
               tmp_marker_addr = tmp
               # also persist it for next time
               self.marker_addr = tmp
@@ -69,7 +69,7 @@ class OpenGoalAutoTracker(object):
               if DEBUG:
                 print(f'found marker at address: {tmp}')
               break
-          
+
           # start from next byte
           tmp += 1
 
@@ -99,6 +99,37 @@ class OpenGoalAutoTracker(object):
       self.process = None
       return False
 
+
+  def check_orbcount_file(self, arg1):
+      desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
+      file_path = os.path.join(desktop_path, "jak2_orbcount.txt")
+      initial_orbcount = "0000/3125 Orbs"
+
+      # Check if the file exists
+      if not os.path.exists(file_path):
+          # Create the file with initial content if it doesn't exist
+          with open(file_path, "w") as file:
+              file.write(initial_orbcount)
+          print(f"File created with initial content: {initial_orbcount}")
+      else:
+          # Read the existing file
+          with open(file_path, "r") as file:
+              content = file.read().strip()
+
+          # Get the current number of orbs
+          current_orbs = content.split("/")[0].strip()
+          num_orbs = arg1
+
+          # Update the file if the number of orbs is different
+          if current_orbs != num_orbs:
+              new_content = f"{num_orbs}/3125 Orbs"
+              with open(file_path, "w") as file:
+                  file.write(new_content)
+              #print(f"File updated to: {new_content}")
+          else:
+              print("No update needed. The number of orbs is the same.")
+
+
   def read_field_values(self, fields):
     try:
       if not self.find_markers(False):
@@ -107,7 +138,7 @@ class OpenGoalAutoTracker(object):
         return None
 
       field_values = {}
-      
+
       for key in fields:
         if 'skip' in fields[key] and fields[key]['skip'] == True:
           continue
@@ -118,15 +149,8 @@ class OpenGoalAutoTracker(object):
         print(f'field_values: {field_values}')
 
       # calculate completion_percent if all necessary fields are found
-      if 'num_power_cells' in field_values and 'num_orbs' in field_values and 'num_scout_flies' in field_values:
-        pct = (80.0 * field_values['num_power_cells'] / 101.0) \
-          + (10.0 * field_values['num_orbs'] / 2000.0) \
-          + (10.0 * field_values['num_scout_flies'] / 112.0)
-        field_values['completion_percent'] = f'{pct:0.1f}%'
-        # make sure we only show 100.0% if it's actually 100% (lazy round down)
-        if field_values['completion_percent'] == f'{100:0.1f}%' and pct != 100.0:
-          field_values['completion_percent'] = f'{99.9:0.1f}%'
-
+      if 'num_orbs' in field_values:
+        self.check_orbcount_file(field_values['num_orbs'])
       self.process.close()
 
       return field_values
